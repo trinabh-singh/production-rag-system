@@ -2,6 +2,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from nltk import tokenize
 import nltk
 nltk.download('punkt')
+nltk.download("punkt_tab")
 
 def fixed_size_chunker(
     documents: list[dict],

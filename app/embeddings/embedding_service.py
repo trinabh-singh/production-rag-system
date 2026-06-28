@@ -7,10 +7,20 @@ class EmbeddingService:
         
         self.model = SentenceTransformer(model_name)
 
-    def embed_documents(self, documents: list[str]) -> np.ndarray:
-        
+    def embed_documents(self, chunks):
+        texts = [chunk["content"] for chunk in chunks]
+
         embeddings = self.model.encode(
-            documents,
+            texts,
+            convert_to_numpy=True,
+            show_progress_bar=True
+        )
+
+        return embeddings
+    
+    def embed_query(self,query):
+        embeddings=self.model.encode(
+            query,
             convert_to_numpy=True,
             show_progress_bar=True
         )

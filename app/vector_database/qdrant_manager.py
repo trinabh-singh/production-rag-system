@@ -16,29 +16,30 @@ class QdrantManager:
     ):
         self.client = QdrantClient(
             host=host,
-            port=port
+            port=port,
+            timeout=60
         )
 
         self.collection_name = collection_name
 
-def create_collection(self, vector_size: int = 384):
+    def create_collection(self, vector_size: int = 384):
     
-    if self.client.collection_exists(collection_name=self.collection_name):
-        print(f"Collection '{self.collection_name}' already exists. Skipping creation.")
-        return
+        if self.client.collection_exists(collection_name=self.collection_name):
+            print(f"Collection '{self.collection_name}' already exists. Skipping creation.")
+            return
 
     
-    print(f"Creating collection '{self.collection_name}'...")
-    self.client.create_collection(
-        collection_name=self.collection_name,
-        vectors_config=VectorParams(
-            size=vector_size, 
-            distance=Distance.COSINE
+        print(f"Creating collection '{self.collection_name}'...")
+        self.client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(
+                size=vector_size, 
+                distance=Distance.COSINE
+            )
         )
-    )
-    print(f"Collection '{self.collection_name}' created successfully.")
+        print(f"Collection '{self.collection_name}' created successfully.")
 
-def upload_documents(self, embeddings, chunks):
+    def upload_documents(self, embeddings, chunks):
         
         points = []
         
@@ -50,8 +51,13 @@ def upload_documents(self, embeddings, chunks):
             
             point = PointStruct(
                 id=point_id,
-                vector=embedding,
-                payload={"text": chunk}
+                vector=embedding.tolist(),
+                payload={
+                    "text": chunk["content"],
+                    "chunk_id": chunk["chunk_id"],
+                    "page_number": chunk["page_number"],
+                    "strategy": chunk["strategy"]
+                }
             )
             points.append(point)
             
@@ -61,27 +67,32 @@ def upload_documents(self, embeddings, chunks):
             points=points
         )
 
-def search(self, query_embedding: list, limit: int = 5) -> list:
-        
-        search_results = self.client.search(
+    def search(self, query_embedding: list, limit: int = 5):
+
+        response = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,          # <-- NOT query_vector
             limit=limit,
-            with_payload=True  
+            with_payload=True
         )
-        
+
         formatted_results = []
-        
-        for hit in search_results:
-            
+
+        for hit in response.points:
+
             payload = hit.payload if hit.payload else {}
-             
-            chunk_text = payload.get("text", "")
-            
-            formatted_results.append({
-                "chunk": chunk_text,
-                "score": hit.score,
-                "metadata": {k: v for k, v in payload.items() if k != "text"}
-            })
-            
+
+            formatted_results.append(
+                {
+                    "chunk": payload.get("text", ""),
+                    "score": hit.score,
+                    "metadata": {k: v for k, v in payload.items() if k != "text"}
+                }
+            )
+
         return formatted_results
+    
+    def delete_collection(self):
+        self.client.delete_collection(
+            collection_name=self.collection_name
+        )
